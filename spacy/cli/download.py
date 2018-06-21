@@ -17,25 +17,46 @@ from .. import about
     model=("model to download, shortcut or name)", "positional", None, str),
     direct=("force direct download. Needs model name with version and won't "
             "perform compatibility check", "flag", "d", bool),
+    silent=("force direct download. Needs model name with version and won't "
+            "perform compatibility check", "flag", "s", bool),
     pip_args=("additional arguments to be passed to `pip install` when "
-              "installing the model"))
-def download(model, direct=False, *pip_args):
+              "installing the model")
+)
+
+def download(model, direct=False,  silent = False, *pip_args):
     """
     Download compatible model from default download path using pip. Model
     can be shortcut, model name or, if --direct flag is set, full model name
     with version.
     """
     if direct:
-        dl = download_model('{m}/{m}.tar.gz#egg={m}'.format(m=model), pip_args)
+        print("inside direct")
+
+        if silent:
+            dl = download_model('{m}/{m}.tar.gz#egg={m}'.format(m=model), pip_args, silent)
+            return dl
+        else:
+            download_model('{m}/{m}.tar.gz#egg={m}'.format(m=model), pip_args)
+
+
     else:
         shortcuts = get_json(about.__shortcuts__, "available shortcuts")
         model_name = shortcuts.get(model, model)
         compatibility = get_compatibility()
         version = get_version(model_name, compatibility)
-        dl = download_model('{m}-{v}/{m}-{v}.tar.gz#egg={m}=={v}'
-                            .format(m=model_name, v=version), pip_args)
-        if dl != 0:  # if download subprocess doesn't return 0, exit
-            sys.exit(dl)
+
+        if silent:
+            dl = download_model('{m}-{v}/{m}-{v}.tar.gz#egg={m}=={v}'
+                                .format(m=model_name, v=version), pip_args, silent)
+            return dl
+        else:
+            dl = download_model('{m}-{v}/{m}-{v}.tar.gz#egg={m}=={v}'
+                                .format(m=model_name, v=version), pip_args)
+
+        print("Return type:" + str(type(dl)))
+
+        if dl.returncode != 0:  # if download subprocess doesn't return 0, exit
+            sys.exit(dl.returncode)
         try:
             # Get package path here because link uses
             # pip.get_installed_distributions() to check if model is a
@@ -43,6 +64,7 @@ def download(model, direct=False, *pip_args):
             # subprocess
             package_path = get_package_path(model_name)
             link(model_name, model, force=True, model_path=package_path)
+            return dl
         except:
             # Dirty, but since spacy.download and the auto-linking is
             # mostly a convenience wrapper, it's best to show a success
@@ -77,10 +99,23 @@ def get_version(model, comp):
     return comp[model][0]
 
 
-def download_model(filename, user_pip_args=None):
+def download_model(filename, user_pip_args=None, silent= None):
     download_url = about.__download_url__ + '/' + filename
     pip_args = ['--no-cache-dir', '--no-deps']
     if user_pip_args:
         pip_args.extend(user_pip_args)
-    cmd = [sys.executable, '-m', 'pip', 'install'] + pip_args + [download_url]
-    return subprocess.call(cmd, env=os.environ.copy())
+    cmd = [sys.executable, '-m', 'pip', 'install'] + pip_args + [' --vhlsdkfjgs']#[download_url]
+
+    if silent:
+        # If silent we return Popen object with open pipes
+        dl = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=os.environ.copy())
+        # wait for the process to finish so it has a return code.
+        dl.wait()
+        return dl
+
+    else:
+        # If not silent, return Popen object but don't redirect the pipes
+        dl = subprocess.Popen(cmd, env=os.environ.copy(), stdout=None, stderr=None)
+        # wait for the process to finish so it has a return code.
+        dl.wait()
+        return dl
