@@ -30,14 +30,11 @@ def download(model, direct=False,  silent = False, *pip_args):
     with version.
     """
     if direct:
-        print("inside direct")
-
         if silent:
             dl = download_model('{m}/{m}.tar.gz#egg={m}'.format(m=model), pip_args, silent)
             return dl
         else:
             download_model('{m}/{m}.tar.gz#egg={m}'.format(m=model), pip_args)
-
 
     else:
         shortcuts = get_json(about.__shortcuts__, "available shortcuts")
@@ -53,8 +50,6 @@ def download(model, direct=False,  silent = False, *pip_args):
             dl = download_model('{m}-{v}/{m}-{v}.tar.gz#egg={m}=={v}'
                                 .format(m=model_name, v=version), pip_args)
 
-        print("Return type:" + str(type(dl)))
-
         if dl.returncode != 0:  # if download subprocess doesn't return 0, exit
             sys.exit(dl.returncode)
         try:
@@ -64,12 +59,14 @@ def download(model, direct=False,  silent = False, *pip_args):
             # subprocess
             package_path = get_package_path(model_name)
             link(model_name, model, force=True, model_path=package_path)
-            return dl
+
         except:
             # Dirty, but since spacy.download and the auto-linking is
             # mostly a convenience wrapper, it's best to show a success
             # message and loading instructions, even if linking fails.
             prints(Messages.M001.format(name=model_name), title=Messages.M002)
+            return dl
+        return dl
 
 
 def get_json(url, desc):
@@ -104,7 +101,7 @@ def download_model(filename, user_pip_args=None, silent= None):
     pip_args = ['--no-cache-dir', '--no-deps']
     if user_pip_args:
         pip_args.extend(user_pip_args)
-    cmd = [sys.executable, '-m', 'pip', 'install'] + pip_args + [' --vhlsdkfjgs']#[download_url]
+    cmd = [sys.executable, '-m', 'pip', 'install'] + pip_args + [download_url]
 
     if silent:
         # If silent we return Popen object with open pipes
