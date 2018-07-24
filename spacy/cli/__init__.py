@@ -1,4 +1,4 @@
-from .download import download
+from .download import download,uninstall
 from .info import info
 from .link import link
 from .package import package
