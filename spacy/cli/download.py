@@ -29,30 +29,28 @@ def download(model, direct=False, silent=False, *pip_args):
     can be shortcut, model name or, if --direct flag is set, full model name
     with version.
     """
+
     if direct:
         dl = download_model('{m}/{m}.tar.gz#egg={m}'.format(m=model), pip_args, silent)
-        if silent:
-            return dl
 
     else:
         shortcuts = get_json(about.__shortcuts__, "available shortcuts")
         model_name = shortcuts.get(model, model)
-        compatibility = get_compatibility()
-        version = get_version(model_name, compatibility)
-
+        compatibility = get_compatibility(silent=silent)
+        version = get_version(model_name, compatibility, silent)
         dl = download_model('{m}-{v}/{m}-{v}.tar.gz#egg={m}=={v}'
                             .format(m=model_name, v=version), pip_args, silent)
-        if silent:
-            return dl
-
-        if dl.returncode != 0:  # if download subprocess doesn't return 0, exit
-            sys.exit(dl.returncode)
 
         try:
             # Get package path here because link uses
             # pip.get_installed_distributions() to check if model is a
             # package, which fails if model was just installed via
             # subprocess
+
+            # pgk_initialize_master_working_list will register the package,
+            # but it is slow we could put it right after the installation.
+            # I am not too sure where to catch every instance of installation.
+
             package_path = get_package_path(model_name)
             link(model_name, model, force=True, model_path=package_path)
 
@@ -60,17 +58,21 @@ def download(model, direct=False, silent=False, *pip_args):
             # Dirty, but since spacy.download and the auto-linking is
             # mostly a convenience wrapper, it's best to show a success
             # message and loading instructions, even if linking fails.
-            prints(Messages.M001.format(name=model_name), title=Messages.M002)
-            return dl
-        return dl
+            return prints(Messages.M001.format(name=model_name), silent=silent, title=Messages.M002)
+
+    if dl.returncode != 0:  # if download subprocess doesn't return 0, exit
+        if silent:
+            raise ChildProcessError(dl.stderr.read().decode('utf-8', 'strict'))
+        else:
+            sys.exit(dl.returncode)
+
+    return dl
 
 
 def run_in_shell(cmd, silent=False):
     if silent:
-        print(silent)
         # If silent we return Popen object with open pipes
         dl = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=os.environ.copy())
-        print(dl)
         # wait for the process to finish so it has a return code.
         dl.wait()
         return dl
@@ -104,12 +106,14 @@ def uninstall_model(model_name, silent=False):
 
 def uninstall(name, silent=False):
 
-    if is_package(name):  # great, name is an installed package
-        return uninstall_model(name, silent)
+    ## dealing with unlinked models.
+    shortcuts = get_json(about.__shortcuts__, "available shortcuts")
+    model_name = shortcuts.get(name, name)
+
+    if is_package(model_name):  # great, name is an installed package
+        return uninstall_model(model_name, silent)
 
     link_path = get_data_path() / name
-
-    print(link_path)
 
     if link_path.exists():  # name is a shortcut link
         pkg_name = get_pkg_for_link(name)
@@ -125,22 +129,24 @@ def get_json(url, desc):
     return r.json()
 
 
-def get_compatibility():
+def get_compatibility(silent=False):
     version = about.__version__
     version = version.rsplit('.dev', 1)[0]
     comp_table = get_json(about.__compatibility__, "compatibility table")
     comp = comp_table['spacy']
     if version not in comp:
-        prints(Messages.M006.format(version=version), title=Messages.M005,
-               exits=1)
+        # return to client if silent
+        return prints(Messages.M006.format(version=version), title=Messages.M005,
+                      silent=silent, exits=1)
     return comp[version]
 
 
-def get_version(model, comp):
+def get_version(model, comp, silent=False):
     model = model.rsplit('.dev', 1)[0]
     if model not in comp:
-        prints(Messages.M007.format(name=model, version=about.__version__),
-               title=Messages.M005, exits=1)
+        # if silent = True returns error to client else prints to console
+        return prints(Messages.M007.format(name=model, version=about.__version__),
+                      title=Messages.M005, silent=silent, exits=1)
     return comp[model][0]
 
 

@@ -4,11 +4,12 @@ from __future__ import unicode_literals
 import plac
 import platform
 from pathlib import Path
-
+from .download import get_json
 from ._messages import Messages
 from ..compat import path2str
 from .. import util
 from .. import about
+from ..util import is_package
 
 
 @plac.annotations(
@@ -61,7 +62,17 @@ def list_models():
         exclude = ['cache', 'pycache', '__pycache__']
         return dir_name in exclude or dir_name.startswith('.')
     data_path = util.get_data_path()
+    available_models_dict = get_json('https://api.github.com/repos/explosion/spacy-models/releases', 'available models')
+    available_models = [m['name'].rsplit('-')[0] for m in available_models_dict]
+    installed_models = []
+    import pkg_resources
+    pkg_resources._initialize_master_working_set()
+    for model in available_models:
+        if is_package(model):
+            installed_models.append(model)
+
     if data_path:
         models = [f.parts[-1] for f in data_path.iterdir() if f.is_dir()]
-        return ', '.join([m for m in models if not exclude_dir(m)])
+        str = ', '.join([m for m in models if not exclude_dir(m)]) +', '+ ','.join([m for m in installed_models])
+        return str
     return '-'

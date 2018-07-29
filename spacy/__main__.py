@@ -6,7 +6,7 @@ from __future__ import print_function
 if __name__ == '__main__':
     import plac
     import sys
-    from spacy.cli import download, link, info, package, train, convert
+    from spacy.cli import download, uninstall, link, info, package, train, convert
     from spacy.cli import vocab, init_model, profile, evaluate, validate
     from spacy.util import prints
 
@@ -21,7 +21,8 @@ if __name__ == '__main__':
         'vocab': vocab,
         'init-model': init_model,
         'profile': profile,
-        'validate': validate
+        'validate': validate,
+        'uninstall': uninstall
     }
     if len(sys.argv) == 1:
         prints(', '.join(commands), title="Available commands", exits=1)

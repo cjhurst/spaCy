@@ -546,7 +546,7 @@ def print_markdown(data, title=None):
     print('\n{}\n'.format('\n'.join(markdown)))
 
 
-def prints(*texts, **kwargs):
+def prints(*texts, silent=False, **kwargs,):
     """Print formatted message (manual ANSI escape sequences to avoid
     dependency)
 
@@ -557,9 +557,14 @@ def prints(*texts, **kwargs):
     title = kwargs.get('title', None)
     title = '\033[93m{}\033[0m\n'.format(_wrap(title)) if title else ''
     message = '\n\n'.join([_wrap(text) for text in texts])
-    print('\n{}{}\n'.format(title, message))
-    if exits is not None:
-        sys.exit(exits)
+
+    # allow the message to be returned to a client.
+    if silent:
+        return '\n{}{}\n'.format(title, message)
+    else:
+        print('\n{}{}\n'.format(title, message))
+        if exits is not None:
+            sys.exit(exits)
 
 
 def _wrap(text, wrap_max=80, indent=4):
